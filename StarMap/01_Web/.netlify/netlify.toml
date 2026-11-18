@@ -1,0 +1,28 @@
+plugins = []
+headers = []
+redirects = []
+
+[functions]
+
+[functions."*"]
+
+[build]
+publish = "E:\\王全的工作台\\02-BIM项目文件\\018-starmap\\StarMap\\01_Web\\dist"
+publishOrigin = "ui"
+commandOrigin = "ui"
+base = "E:\\王全的工作台\\02-BIM项目文件\\018-starmap\\StarMap\\01_Web"
+command = "npm run build:public"
+
+[build.environment]
+
+[build.processing]
+
+[build.processing.css]
+
+[build.processing.html]
+
+[build.processing.images]
+
+[build.processing.js]
+
+[build.services]

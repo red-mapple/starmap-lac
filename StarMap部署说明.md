@@ -863,3 +863,10 @@ COS 侧：桶 `starmap-static-1530766442`（广州、单 AZ、公有读私有写
 - 推送方式：本机 `github.com:443` 的 git 传输会被重置，改用 GitHub REST API 逐文件上传（脚本 `github\push-main.ps1`、`github\push-pages.ps1`），`api.github.com` 可达。
 - Pages 构建要点：`npx vite build --mode personal --base=/starmap-lac/` + `split-static`；`vite-plugin-cesium` 在非 `/` base 下会把 Cesium 写进 `dist/starmap-lac/cesium`，发布前必须把该目录移到 `dist/cesium`，否则 Cesium.js 404、页面白屏。
 - 公网主站仍以 EdgeOne + COS 为准；GitHub Pages 是源码与演示的第二落点，媒体同样从 COS 读取。
+**14.22 影像工具内置「更新到 GitHub」（2026-11-18）**
+
+- 影像工具第 5 张卡片新增按钮：**更新 GitHub**（源码 + Pages）、**只更新源码（main）**；下方显示上次同步时间、结果与两个提交号。
+- 后端接口：`POST /api/github/sync`（流式日志，`?scope=main` 只推源码）、`GET /api/github/status`；状态文件 `06_private\.cache\github-sync.json`。
+- 执行脚本：`github\github-sync.mjs`，流程 = 刷新暂存目录 → 计算 blob sha 只上传变化文件 → 推 main → `vite build --mode personal --base=/starmap-lac/` + `split-static` + 纠正 Cesium 目录 → 推 gh-pages。
+- 实测：源码无改动时 gh-pages 跳过提交；改了源码约 16 秒完成；页面日志与运行日志同步可见。
+- 注意：本机 `github.com` git 传输会被重置，脚本全程走 `api.github.com`；依赖 `gh auth token`，GitHub 登录失效时按钮会报「读不到 GitHub 登录态」。

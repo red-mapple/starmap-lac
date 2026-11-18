@@ -853,3 +853,13 @@ COS 侧：桶 `starmap-static-1530766442`（广州、单 AZ、公有读私有写
 
 发布：`仅重建发布（不带上新素材）`，EdgeOne 部署 ID `dp13vkvkvikv`，耗时 74.7 s。
 > 14.20 补充（2026-11-18）：地面落点统一为固定 `pixelSize: 7`，不再随选中态放大缩小，所有城市的落地点尺寸一致。
+
+**14.21 GitHub 托管（2026-11-18）**
+
+- 仓库：https://github.com/red-mapple/starmap-lac （public，默认分支 `main`）
+- Pages：https://red-mapple.github.io/starmap-lac/ （源为 `gh-pages` 分支，已构建成功）
+- 仓库内容：`StarMap/01_Web` 源码与构建脚本、`工具/` 影像工具、各 `.bat`、本说明文档；**不含** `06_private`（密钥/原片/媒体清单）、`全景图`、`封面图`、`node_modules`、`dist`。
+- 本地打包目录：`018-starmap\github\starmap-lac`（git 已初始化，含 88 个文件）。
+- 推送方式：本机 `github.com:443` 的 git 传输会被重置，改用 GitHub REST API 逐文件上传（脚本 `github\push-main.ps1`、`github\push-pages.ps1`），`api.github.com` 可达。
+- Pages 构建要点：`npx vite build --mode personal --base=/starmap-lac/` + `split-static`；`vite-plugin-cesium` 在非 `/` base 下会把 Cesium 写进 `dist/starmap-lac/cesium`，发布前必须把该目录移到 `dist/cesium`，否则 Cesium.js 404、页面白屏。
+- 公网主站仍以 EdgeOne + COS 为准；GitHub Pages 是源码与演示的第二落点，媒体同样从 COS 读取。

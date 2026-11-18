@@ -1,0 +1,715 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>StarMap 影像工具</title>
+<style>
+  :root {
+    --bg: #f4f7f6;
+    --card: #ffffff;
+    --line: #e2e8e5;
+    --ink: #1d2a26;
+    --muted: #6b7b76;
+    --accent: #0f766e;
+    --accent-weak: #e6f4f1;
+    --danger: #b91c1c;
+    --ok: #15803d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px 20px 40px;
+    background: var(--bg); color: var(--ink);
+    font: 14px/1.6 "Microsoft YaHei UI", "PingFang SC", system-ui, sans-serif;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; }
+  header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 18px; }
+  header h1 { font-size: 20px; margin: 0; letter-spacing: .5px; }
+  header .sub { color: var(--muted); font-size: 12.5px; }
+  header .site { margin-left: auto; font-size: 12.5px; }
+  header .site a { color: var(--accent); text-decoration: none; }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 16px 18px; margin-bottom: 14px;
+  }
+  .card h2 {
+    font-size: 14px; margin: 0 0 12px; display: flex; align-items: center; gap: 8px;
+    font-weight: 600;
+  }
+  .badge {
+    display: inline-flex; width: 20px; height: 20px; border-radius: 50%;
+    background: var(--accent-weak); color: var(--accent);
+    align-items: center; justify-content: center; font-size: 12px; font-weight: 700;
+  }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  label.inline { color: var(--muted); font-size: 12.5px; }
+  select, input[type="text"], input[type="date"], input[type="number"] {
+    font: inherit; padding: 6px 9px; border: 1px solid var(--line);
+    border-radius: 6px; background: #fff; color: var(--ink); outline: none;
+  }
+  select:focus, input:focus { border-color: var(--accent); }
+  button {
+    font: inherit; padding: 7px 14px; border-radius: 6px; border: 1px solid var(--line);
+    background: #fff; color: var(--ink); cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover { background: #0b5f58; color: #fff; }
+  button.link {
+    background: none; border: none; padding: 0 2px; color: var(--accent);
+    text-decoration: underline; font-size: 12.5px;
+  }
+  button.link:hover { color: #0b5f58; text-decoration: underline; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .hint { color: var(--muted); font-size: 12.5px; margin-top: 8px; }
+  .hint strong { color: var(--ink); font-weight: 600; }
+  .drop {
+    border: 1.5px dashed #c8d6d1; border-radius: 10px; padding: 22px 16px;
+    text-align: center; color: var(--muted); background: #fbfdfc; cursor: pointer;
+    transition: .15s;
+  }
+  .drop.hot { border-color: var(--accent); background: var(--accent-weak); color: var(--accent); }
+  .drop b { color: var(--ink); }
+  .filelist { margin-top: 10px; display: none; }
+  .filelist.show { display: block; }
+  .file-item {
+    display: flex; align-items: center; gap: 10px; padding: 6px 0;
+    border-bottom: 1px dashed var(--line); font-size: 13px;
+  }
+  .file-item .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file-item .sz { color: var(--muted); font-size: 12px; }
+  .file-item .x { color: var(--danger); cursor: pointer; font-size: 12px; }
+  .row-actions { margin-top: 14px; display: flex; gap: 10px; align-items: center; }
+  .progress { height: 4px; background: #e8efec; border-radius: 3px; overflow: hidden; margin-top: 12px; }
+  .progress > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+  #log {
+    background: #0f1a17; color: #d7e6e0; border-radius: 8px; padding: 12px 14px;
+    font: 12.5px/1.65 Consolas, "Courier New", monospace; height: 240px;
+    overflow: auto; white-space: pre-wrap; word-break: break-all;
+  }
+  #log .ok { color: #7ee1a8; }
+  #log .err { color: #ff9a9a; }
+  #log .dim { color: #7d938b; }
+  .newcity { display: none; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); }
+  .newcity.show { display: block; }
+  .grid { display: grid; grid-template-columns: repeat(3, minmax(180px, 1fr)); gap: 10px 14px; }
+  .field label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+  .field input { width: 100%; }
+  .status { font-size: 12.5px; margin-left: 6px; }
+  .status.ok { color: var(--ok); }
+  .status.err { color: var(--danger); }
+  .radio { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+  .media-list { margin-top: 10px; display: grid; gap: 8px; }
+  .media-item {
+    display: flex; gap: 12px; align-items: center; border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 10px; background: #fff;
+  }
+  .media-item img {
+    width: 148px; height: 74px; object-fit: cover; border-radius: 6px;
+    background: #eef3f1; flex: none;
+  }
+  .media-item .info { flex: 1; min-width: 0; }
+  .media-item .t { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .media-item .m { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .media-item .tag {
+    display: inline-block; margin-right: 6px; padding: 1px 6px; border-radius: 4px;
+    background: var(--accent-weak); color: var(--accent); font-size: 11.5px;
+  }
+  .media-item .tag.warn { background: #fdf0e3; color: #a8621a; }
+  .media-item button.del { border-color: #e6c9c9; color: var(--danger); flex: none; }
+  .media-empty { color: var(--muted); font-size: 13px; padding: 8px 0; }
+  .media-item .edit { display: flex; gap: 8px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
+  .media-item .edit input[type="text"] { width: 240px; }
+  .media-item .edit input[type="date"] { width: 140px; }
+  .media-item .edit button { padding: 3px 10px; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>StarMap 影像工具</h1>
+    <span class="sub">选城市 → 选图片 → 自动处理并同步公网</span>
+    <span class="site"><a href="https://console.cloud.tencent.com/edgeone/makers/project/makers-usa88fszfoer" target="_blank">EdgeOne 控制台 ↗</a></span>
+  </header>
+
+  <div class="card">
+    <h2><span class="badge">1</span>选择城市</h2>
+    <div class="row">
+      <select id="city" style="min-width:320px"></select>
+      <button id="reload">刷新列表</button>
+      <button id="toggleNew">新建城市</button>
+      <button id="openInbox">打开收件箱目录</button>
+    </div>
+    <div class="hint" id="cityHint">读取中…</div>
+
+    <div class="newcity" id="newCityPanel">
+      <div class="grid">
+        <div class="field"><label>城市中文名 *</label><input id="ncCity" placeholder="例如 黄州区"></div>
+        <div class="field"><label>英文名 *（生成城市ID）</label><input id="ncCityEn" placeholder="例如 Huangzhou"></div>
+        <div class="field"><label>日期</label><input id="ncDate" type="date"></div>
+        <div class="field"><label>纬度 *</label><input id="ncLat" placeholder="30.4340"></div>
+        <div class="field"><label>经度 *</label><input id="ncLng" placeholder="114.8790"></div>
+        <div class="field"><label>地区/大洲</label><input id="ncRegion" value="亚洲 / 湖北 · 黄冈"></div>
+      </div>
+      <div class="hint" id="geoHint">填写「城市中文名」后自动按天地图地名检索填入经纬度，也可手动改。</div>
+      <div class="row" style="margin-top:12px">
+        <button class="primary" id="doCreate">创建城市</button>
+        <button id="doGeocode">按名称重新查坐标</button>
+        <button id="cancelCreate">取消</button>
+        <span class="status" id="createStatus"></span>
+      </div>
+      <div class="hint">会写入 travel-map.local.json，并建好 MediaInbox\中国\&lt;城市&gt;\drone 与 photos 两个目录。</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="badge">2</span>修改名称（左栏城市名 / 右栏无人机影像标题）</h2>
+    <div class="grid">
+      <div class="field"><label>左栏城市中文名</label><input id="lbCityZh" placeholder="留空 = 用城市记录名"></div>
+      <div class="field"><label>左栏城市英文名</label><input id="lbCityEn" placeholder="留空 = 用城市记录名"></div>
+      <div class="field"><label>右栏无人机影像标题</label><input id="lbDroneTitle" placeholder="留空 = 「城市名 + 无人机影像」"></div>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button class="primary" id="saveLabels">保存名称</button>
+      <button id="resetLabels">恢复默认</button>
+      <span class="status" id="labelStatus"></span>
+    </div>
+    <div class="hint">只改公网显示，不改目录名与 travel-map 记录；保存后到第 4 步点「仅重建发布（不带上新素材）」才会上线。</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="badge">3</span>上传素材并发布</h2>
+    <div class="row" style="margin-bottom:12px">
+      <span class="radio"><input type="radio" name="type" value="drone" id="tDrone" checked><label for="tDrone">无人机素材（全景自动压成 8192×4096，普通照片直接入库）</label></span>
+      <span class="radio"><input type="radio" name="type" value="cover" id="tCover"><label for="tCover">城市封面（自动命名为 cover-&lt;城市&gt;）</label></span>
+    </div>
+    <div class="hint" style="margin-bottom:10px">处理时会读取原片 EXIF 的 GPS（经纬度 / 海拔 / 拍摄时间）写入网页版图片，并把 position 写进 media.json，保证公网地图能画出对应点位；原片没有 GPS 时回退用「选择城市」里该城市的坐标。</div>
+    <div class="drop" id="drop">
+      把图片拖到这里，或 <b>点击选择图片</b><br>
+      <span style="font-size:12.5px">支持 JPG / PNG / TIFF / WEBP；253MP 全景原片可直接丢，会自动转网页版</span>
+    </div>
+    <input type="file" id="picker" multiple accept="image/*,video/*" style="display:none">
+    <div class="filelist" id="filelist"></div>
+
+    <div class="row" style="margin-top:14px">
+      <label class="inline" for="date">拍摄日期</label>
+      <input type="date" id="date">
+      <label class="inline" for="title">标题前缀</label>
+      <input type="text" id="title" style="width:260px" placeholder="例如 红安县航拍全景">
+    </div>
+
+    <div class="row" style="margin-top:10px">
+      <label class="inline" for="ovLat">覆盖坐标（可选）纬度</label>
+      <input type="text" id="ovLat" style="width:130px" placeholder="留空=EXIF/城市坐标">
+      <label class="inline" for="ovLng">经度</label>
+      <input type="text" id="ovLng" style="width:130px" placeholder="例如 114.5946">
+      <label class="inline" for="ovAlt">海拔(m)</label>
+      <input type="text" id="ovAlt" style="width:90px" placeholder="可选">
+    </div>
+
+    <div class="row-actions">
+      <button class="primary" id="runPublish">上传并发布</button>
+      <button id="runOnly">仅上传（不发布）</button>
+      <button id="clearFiles">清空列表</button>
+      <span class="status" id="runStatus"></span>
+    </div>
+    <div class="hint">「上传并发布」= 把选中的图入库后立刻构建上线；只想先入库、晚点再上线就用「仅上传（不发布）」，之后到第 4 步点「仅重建发布」。</div>
+    <div class="progress"><i id="bar"></i></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="badge">4</span>已上传素材（与公网同步）</h2>
+    <div class="row">
+      <span class="hint" id="mediaHint" style="margin:0">选择城市后自动列出该城市 media.json 里的全景 / 照片素材。</span>
+      <button id="reloadMedia" style="margin-left:auto">刷新素材</button>
+      <button class="link" id="publishNow" title="只把当前私有层现状重新构建上线，不会带上第 3 步里还没上传的图">仅重建发布（不带上新素材）</button>
+    </div>
+    <div class="media-list" id="mediaList"></div>
+    <div class="hint" id="mediaStatus"></div>
+    <div class="hint">适合场景：只改了名称 / 拍摄日期、删了素材、调了顺序，或刚才点的是「仅上传（不发布）」。有新图要上线请回第 3 步点「上传并发布」。</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="badge">5</span>运行日志 <a href="/api/logs?lines=500" target="_blank" style="margin-left:10px;font-size:12px;font-weight:400;color:#2563eb;text-decoration:underline">服务日志（持久记录）</a></h2>
+    <div id="log"></div>
+  </div>
+</div>
+
+<script>
+const api = {
+  cities: () => fetch('/api/cities').then(r => r.json()),
+  createCity: (body) => fetch('/api/cities', {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
+  }).then(r => r.json()),
+  geocode: (name) => fetch('/api/geocode?name=' + encodeURIComponent(name)).then(r => r.json()),
+  media: (city) => fetch('/api/media?city=' + encodeURIComponent(city)).then(r => r.json()),
+  updateMedia: (body) => fetch('/api/media/update', {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
+  }).then(r => r.json()),
+  deleteMedia: (city, key) => fetch('/api/media/delete?city=' + encodeURIComponent(city) + '&key=' + encodeURIComponent(key), { method: 'POST' }).then(r => r.json()),
+  labels: (city) => fetch('/api/labels?city=' + encodeURIComponent(city)).then(r => r.json()),
+  saveCityName: (body) => fetch('/api/labels/city-name', {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
+  }).then(r => r.json()),
+  saveDroneTitle: (body) => fetch('/api/labels/drone-title', {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
+  }).then(r => r.json()),
+};
+
+const $ = (id) => document.getElementById(id);
+let cities = [];
+let files = [];
+
+function log(text, cls) {
+  const box = $('log');
+  const line = document.createElement('div');
+  if (cls) line.className = cls;
+  line.textContent = text;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+function setStatus(el, text, cls) {
+  el.textContent = text || '';
+  el.className = 'status' + (cls ? ' ' + cls : '');
+}
+
+function fmtSize(bytes) {
+  if (bytes >= 1024 * 1024) return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+  return Math.max(1, Math.round(bytes / 1024)) + ' KB';
+}
+
+async function loadCities(keep) {
+  const data = await api.cities();
+  if (!data.ok) { log('读取城市失败：' + (data.error || '未知'), 'err'); return; }
+  cities = data.cities || [];
+  const sel = $('city');
+  const prev = keep || sel.value;
+  sel.innerHTML = '';
+  for (const c of cities) {
+    const opt = document.createElement('option');
+    opt.value = c.city;
+    opt.textContent = `${c.city}（无人机 ${c.droneCount} / 封面 ${c.photoCount}）`;
+    sel.appendChild(opt);
+  }
+  for (const extra of (data.inboxOnly || [])) {
+    const opt = document.createElement('option');
+    opt.value = extra.city;
+    opt.textContent = `${extra.city}（只有目录，无城市记录）`;
+    sel.appendChild(opt);
+  }
+  if (prev) sel.value = prev;
+  if (!sel.value && sel.options.length) sel.selectedIndex = 0;
+  onCityChange();
+}
+
+function onCityChange() {
+  const city = $('city').value;
+  const info = cities.find(c => c.city === city);
+  if (!info) {
+    $('cityHint').textContent = '该城市还没有记录，请先新建。';
+    $('mediaList').innerHTML = '<div class="media-empty">该城市没有 travel-map 记录，读不到 media.json。</div>';
+    return;
+  }
+  $('cityHint').innerHTML = `坐标 <strong>${info.lat}, ${info.lng}</strong>　·　地区 <strong>${info.region || '未填'}</strong>　·　城市ID <strong>${info.cityId}</strong>　·　收件箱 ${info.inboxExists ? '已存在' : '缺失'}`;
+  if (info.date) $('date').value = info.date;
+  $('title').value = info.city + '航拍全景';
+  loadLabels(city);
+  loadMedia(city);
+}
+
+// ---- 左栏城市名 / 右栏标题 ----
+async function loadLabels(city) {
+  setStatus($('labelStatus'), '');
+  if (!city) return;
+  const res = await api.labels(city);
+  if (!res.ok) { setStatus($('labelStatus'), res.error || '读取失败', 'err'); return; }
+  $('lbCityZh').value = res.cityName.nameZh || '';
+  $('lbCityEn').value = res.cityName.nameEn || '';
+  $('lbDroneTitle').value = res.droneTitle || '';
+  $('lbCityZh').placeholder = `留空 = ${res.defaults.nameZh}`;
+  $('lbCityEn').placeholder = `留空 = ${res.defaults.nameEn || '英文名'}`;
+  $('lbDroneTitle').placeholder = `留空 = ${res.defaults.droneTitle}`;
+}
+
+async function saveLabels(silent) {
+  const city = $('city').value;
+  if (!city) { setStatus($('labelStatus'), '请先选城市', 'err'); return; }
+  const nameZh = $('lbCityZh').value.trim();
+  const nameEn = $('lbCityEn').value.trim();
+  const droneTitle = $('lbDroneTitle').value.trim();
+  setStatus($('labelStatus'), '保存中…');
+  const nameRes = await api.saveCityName({ city, nameZh, nameEn });
+  const titleRes = await api.saveDroneTitle({ city, title: droneTitle });
+  if (!nameRes.ok || !titleRes.ok) {
+    setStatus($('labelStatus'), nameRes.error || titleRes.error || '保存失败', 'err');
+    return;
+  }
+  setStatus($('labelStatus'), '已保存，发布后生效', 'ok');
+  if (!silent) {
+    log(`[名称] ${city}：左栏「${nameZh || '默认'}」/ 右栏「${droneTitle || '默认'}」`, 'ok');
+  }
+}
+
+$('saveLabels').onclick = () => saveLabels(false);
+$('resetLabels').onclick = async () => {
+  $('lbCityZh').value = '';
+  $('lbCityEn').value = '';
+  $('lbDroneTitle').value = '';
+  await saveLabels(false);
+};
+
+// ---- 已上传素材列表 ----
+const KIND_LABEL = { panorama360: '全景', aerialPhoto: '航拍照片', video: '视频' };
+
+async function loadMedia(city) {
+  const box = $('mediaList');
+  box.innerHTML = '';
+  if (!city) return;
+  const res = await api.media(city);
+  if (!res.ok) {
+    box.innerHTML = `<div class="media-empty">${res.error || '读取失败'}</div>`;
+    return;
+  }
+  const s = res.summary || {};
+  $('mediaHint').textContent = `共 ${s.total || 0} 项：全景 ${s.panoramas || 0} · 照片 ${s.photos || 0} · 视频 ${s.videos || 0}；有坐标 ${s.withPosition || 0} 项${s.missingFiles ? `；文件缺失 ${s.missingFiles} 项` : ''}`;
+  if (!res.items || !res.items.length) {
+    box.innerHTML = '<div class="media-empty">这个城市还没有素材，用上面「上传素材并发布」传图。</div>';
+    return;
+  }
+  for (const item of res.items) box.appendChild(renderMediaItem(city, item));
+}
+
+function renderMediaItem(city, item) {
+  const row = document.createElement('div');
+  row.className = 'media-item';
+  const kindLabel = KIND_LABEL[item.kind] || '素材';
+  const gps = item.position
+    ? `GPS ${item.position.lat.toFixed(5)}, ${item.position.lng.toFixed(5)}`
+    : '无坐标（地图不显示）';
+  const thumbUrl = `/api/media/thumb?city=${encodeURIComponent(city)}&key=${encodeURIComponent(item.key)}`;
+  row.innerHTML = `
+    <img src="${thumbUrl}" loading="lazy" alt="">
+    <div class="info">
+      <div class="t"></div>
+      <div class="m"><span class="tag${item.position ? '' : ' warn'}">${kindLabel}</span>${item.date || '—'} · ${item.resolution || '—'} · ${gps}${item.exists ? '' : ' · <b>文件缺失</b>'}</div>
+      <div class="edit">
+        <input type="text" class="tTitle">
+        <input type="date" class="tDate">
+        <button class="saveT">保存标题</button>
+        <button class="del">删除</button>
+      </div>
+    </div>`;
+  row.querySelector('.t').textContent = item.titleZh;
+  row.querySelector('.tTitle').value = item.titleZh;
+  row.querySelector('.tDate').value = item.date || '';
+
+  row.querySelector('.saveT').onclick = async () => {
+    const titleZh = row.querySelector('.tTitle').value.trim();
+    const date = row.querySelector('.tDate').value;
+    setStatus($('mediaStatus'), '保存中…');
+    const res = await api.updateMedia({ city, key: item.key, titleZh, date });
+    if (!res.ok) { setStatus($('mediaStatus'), res.error || '保存失败', 'err'); return; }
+    setStatus($('mediaStatus'), '已保存，发布后生效', 'ok');
+    log(`[素材] 已更新「${titleZh}」（${date || '原日期'}）`, 'ok');
+    row.querySelector('.t').textContent = res.meta.titleZh || titleZh;
+  };
+
+  row.querySelector('.del').onclick = async () => {
+    if (!confirm(`删除「${item.titleZh}」？文件会移到城市目录 _trash，可手动找回。`)) return;
+    setStatus($('mediaStatus'), '删除中…');
+    const res = await api.deleteMedia(city, item.key);
+    if (!res.ok) { setStatus($('mediaStatus'), res.error || '删除失败', 'err'); return; }
+    setStatus($('mediaStatus'), '已删除，发布后生效', 'ok');
+    log(`[素材] 已删除「${item.titleZh}」，文件在 ${res.trashedTo || '_trash'}`, 'ok');
+    await loadMedia(city);
+    await loadCities(city);
+  };
+
+  return row;
+}
+
+$('reloadMedia').onclick = () => loadMedia($('city').value);
+
+$('reload').onclick = () => loadCities();
+$('city').onchange = onCityChange;
+
+$('toggleNew').onclick = () => {
+  const p = $('newCityPanel');
+  p.classList.toggle('show');
+  if (p.classList.contains('show')) {
+    const first = cities[0];
+    if (first && !$('ncRegion').value) $('ncRegion').value = first.region || '';
+    $('ncCity').focus();
+  }
+};
+$('cancelCreate').onclick = () => $('newCityPanel').classList.remove('show');
+
+// ---- 按城市名自动查经纬度（天地图地名检索） ----
+let geocodeSeq = 0;
+let geocodeTimer = 0;
+
+async function fillCoordsByCityName() {
+  const name = $('ncCity').value.trim();
+  if (name.length < 2) {
+    return;
+  }
+  const seq = ++geocodeSeq;
+  setStatus($('createStatus'), '正在按名称查坐标…');
+  let res;
+  try {
+    res = await api.geocode(name);
+  } catch (error) {
+    res = { ok: false, error: '调用查坐标接口失败：' + error };
+  }
+  if (seq !== geocodeSeq) return;
+  if (!res.ok) {
+    setStatus($('createStatus'), res.error || '没查到该地名，请手动填经纬度', 'err');
+    $('geoHint').textContent = '未自动填坐标：可换更完整的名字（如「湖北省黄冈市红安县」）再试，或手动填写。';
+    return;
+  }
+  $('ncLat').value = res.lat;
+  $('ncLng').value = res.lng;
+  $('geoHint').textContent = `已按天地图检索填好：${res.name || name}${res.address ? '（' + res.address + '）' : ''} → ${res.lat}, ${res.lng}`;
+  setStatus($('createStatus'), '坐标已自动填入', 'ok');
+}
+
+$('ncCity').addEventListener('input', () => {
+  clearTimeout(geocodeTimer);
+  geocodeTimer = setTimeout(fillCoordsByCityName, 700);
+});
+$('ncCity').addEventListener('change', () => {
+  clearTimeout(geocodeTimer);
+  fillCoordsByCityName();
+});
+$('doGeocode').onclick = () => {
+  clearTimeout(geocodeTimer);
+  fillCoordsByCityName();
+};
+
+$('doCreate').onclick = async () => {
+  const body = {
+    city: $('ncCity').value.trim(),
+    'city-en': $('ncCityEn').value.trim(),
+    lat: $('ncLat').value.trim(),
+    lng: $('ncLng').value.trim(),
+    date: $('ncDate').value,
+    region: $('ncRegion').value.trim(),
+  };
+  if (!body.city || !body['city-en'] || !body.lat || !body.lng) {
+    setStatus($('createStatus'), '中文名 / 英文名 / 经纬度都要填', 'err');
+    return;
+  }
+  setStatus($('createStatus'), '创建中…');
+  const res = await api.createCity(body);
+  if (!res.ok) { setStatus($('createStatus'), res.error || '创建失败', 'err'); return; }
+  log(`[新建城市] ${res.city} → ${res.createdDir}`, 'ok');
+  setStatus($('createStatus'), '已创建', 'ok');
+  $('newCityPanel').classList.remove('show');
+  $('ncCity').value = ''; $('ncCityEn').value = '';
+  await loadCities(res.city);
+};
+
+$('openInbox').onclick = async () => {
+  const city = $('city').value;
+  if (!city) return;
+  await fetch('/api/open-inbox?city=' + encodeURIComponent(city), { method: 'POST' });
+};
+
+// ---- 文件选择 ----
+const drop = $('drop'), picker = $('picker');
+drop.onclick = () => picker.click();
+picker.onchange = () => { addFiles([...picker.files]); picker.value = ''; };
+['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('hot'); }));
+['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('hot'); }));
+drop.addEventListener('drop', (e) => addFiles([...e.dataTransfer.files]));
+
+function addFiles(list) {
+  for (const f of list) files.push(f);
+  renderFiles();
+}
+function renderFiles() {
+  const box = $('filelist');
+  box.innerHTML = '';
+  box.classList.toggle('show', files.length > 0);
+  files.forEach((f, i) => {
+    const row = document.createElement('div');
+    row.className = 'file-item';
+    row.innerHTML = `<span class="nm"></span><span class="sz">${fmtSize(f.size)}</span><span class="x">移除</span>`;
+    row.querySelector('.nm').textContent = f.name;
+    row.querySelector('.x').onclick = () => { files.splice(i, 1); renderFiles(); };
+    box.appendChild(row);
+  });
+}
+$('clearFiles').onclick = () => { files = []; renderFiles(); };
+
+// ---- 上传 ----
+function uploadOnce(file, params) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const q = new URLSearchParams({ ...params, name: file.name }).toString();
+    xhr.open('POST', '/api/import?' + q);
+    xhr.responseType = 'json';
+    xhr.timeout = 15 * 60 * 1000;
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) {
+        const pct = Math.round(e.loaded / e.total * 100);
+        $('bar').style.width = pct + '%';
+      }
+    };
+    xhr.onload = () => {
+      if (xhr.response) return resolve(xhr.response);
+      if (xhr.status >= 200 && xhr.status < 300) return resolve({ ok: true, items: [] });
+      return resolve({ ok: false, error: `HTTP ${xhr.status}：${(xhr.responseText || '').slice(0, 200)}` });
+    };
+    xhr.onerror = () => reject(new Error('NETWORK'));
+    xhr.ontimeout = () => reject(new Error('TIMEOUT'));
+    xhr.send(file);
+  });
+}
+
+// 网络中断（服务重启 / 进程被杀）时自动重试 1 次，再失败才报错
+async function uploadOne(file, params) {
+  try {
+    return await uploadOnce(file, params);
+  } catch (error) {
+    log(`${file.name} 上传中断（${error.message === 'TIMEOUT' ? '超时' : '连接被断开'}），1 秒后自动重试第 2 次…`, 'dim');
+    await new Promise((r) => setTimeout(r, 1000));
+    try {
+      return await uploadOnce(file, params);
+    } catch (error2) {
+      return {
+        ok: false,
+        error:
+          '上传中断：影像工具服务没有响应（多半是窗口被关掉、服务正在重启，或本机内存不足）。' +
+          '请确认工具窗口还开着，再点一次上传；完整原因见「服务日志」。',
+      };
+    }
+  }
+}
+
+let lastDeployUrl = '';
+
+async function publishSite(mode = 'upload') {
+  log('');
+  log(mode === 'upload'
+    ? '[发布] 上传素材 → 预检 → 入库 → 构建 → COS 增量 → EdgeOne Pages，约 30–90 秒…'
+    : '[发布] 仅重建：预检 → 入库 → 构建 → COS 增量 → EdgeOne Pages（不带上新素材），约 30–60 秒…', 'dim');
+  const resp = await fetch('/api/publish', { method: 'POST' });
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = '';
+  let code = null;
+  lastDeployUrl = '';
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    const lines = buf.split('\n');
+    buf = lines.pop();
+    for (const line of lines) {
+      if (line.startsWith('__EXIT__')) { code = Number(line.slice(8)); continue; }
+      if (line.includes('Deploy URL:')) {
+        const m = line.match(/https:\/\/\S+/);
+        if (m) { lastDeployUrl = m[0]; log(`🔗 本次预览链接（3 小时内有效）：${lastDeployUrl}`, 'ok'); continue; }
+      }
+      if (line.trim()) log(line);
+    }
+  }
+  if (buf.trim()) log(buf);
+  return code;
+}
+
+async function run(publish) {
+  const city = $('city').value;
+  if (!city) { setStatus($('runStatus'), '请先选城市', 'err'); return; }
+  if (!files.length) { setStatus($('runStatus'), '还没有选图片', 'err'); return; }
+  const type = document.querySelector('input[name="type"]:checked').value;
+  const date = $('date').value;
+  const title = $('title').value.trim();
+  const ovLat = $('ovLat').value.trim();
+  const ovLng = $('ovLng').value.trim();
+  const ovAlt = $('ovAlt').value.trim();
+  const coords = ovLat && ovLng ? { lat: ovLat, lng: ovLng, ...(ovAlt ? { alt: ovAlt } : {}) } : {};
+
+  $('runPublish').disabled = true;
+  $('runOnly').disabled = true;
+  setStatus($('runStatus'), '上传中…');
+  log('');
+  log(`[上传] ${files.length} 个文件 → ${city}（类型 ${type === 'cover' ? '城市封面' : '无人机素材'}）`, 'dim');
+
+  const failed = [];
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    setStatus($('runStatus'), `上传中… ${i + 1}/${files.length}`);
+    const res = await uploadOne(f, { city, type, date, title, ...coords });
+    if (!res.ok) {
+      failed.push(f.name);
+      log(`${f.name} ✗ ${res.error || (res.errors || []).join('；')}`, 'err');
+      continue;
+    }    for (const item of (res.items || [])) {
+      log(`${item.file} ✓ ${item.action} → ${item.out}  ${item.note || ''}`, 'ok');
+    }
+  }
+  $('bar').style.width = '0%';
+
+  if (failed.length) {
+    log(`有 ${failed.length} 个文件未入库，发布已跳过。`, 'err');
+    setStatus($('runStatus'), '部分失败', 'err');
+    $('runPublish').disabled = false;
+    $('runOnly').disabled = false;
+    return;
+  }
+
+  if (!publish) {
+    log('已上传但未发布。要上线时点第 4 步「仅重建发布（不带上新素材）」，或双击 更新影像并发布.bat。', 'dim');
+    setStatus($('runStatus'), '已上传（未发布）', 'ok');
+    $('runPublish').disabled = false;
+    $('runOnly').disabled = false;
+    return;
+  }
+
+  setStatus($('runStatus'), '构建并上传中…');
+  const code = await publishSite('upload');
+  if (code === 0) {
+    log(lastDeployUrl ? `✅ 已发布到 EdgeOne Pages：${lastDeployUrl}` : '✅ 已发布到 EdgeOne Pages（项目 starmap-lac）', 'ok');
+    log('提示：EdgeOne 免费版默认域名仅 3 小时有效，过期后到控制台点「预览」取新链接。', 'dim');
+    setStatus($('runStatus'), '已发布', 'ok');
+  } else {
+    log(`❌ 发布失败（退出码 ${code}），请看上面日志。`, 'err');
+    setStatus($('runStatus'), '发布失败', 'err');
+  }
+  $('runPublish').disabled = false;
+  $('runOnly').disabled = false;
+  loadCities(city);
+}
+
+$('publishNow').onclick = async () => {
+  const city = $('city').value;
+  $('publishNow').disabled = true;
+  setStatus($('mediaStatus'), '仅重建发布中…');
+  const code = await publishSite('rebuild');
+  if (code === 0) {
+    log(lastDeployUrl ? `✅ 已发布到 EdgeOne Pages：${lastDeployUrl}` : '✅ 已发布到 EdgeOne Pages（项目 starmap-lac）', 'ok');
+    setStatus($('mediaStatus'), '已发布', 'ok');
+  } else {
+    setStatus($('mediaStatus'), `发布失败（退出码 ${code}），看日志`, 'err');
+  }
+  $('publishNow').disabled = false;
+  await loadMedia(city);
+  await loadCities(city);
+};
+
+$('runPublish').onclick = () => run(true);
+$('runOnly').onclick = () => run(false);
+
+(async function init() {
+  log('StarMap 影像工具已就绪。', 'dim');
+  if (!$('ncDate').value) {
+    const d = new Date();
+    $('ncDate').value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+  await loadCities();
+  if (!cities.length) log('还没有城市记录，点「新建城市」开始。', 'dim');
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+# 依赖与构建产物
+node_modules/
+dist/
+dist-static/
+dist-pages/
+*.log
+
+# 本地私有层：密钥、原始影像、媒体清单（绝不入库）
+06_private/
+.env
+.env.local
+.env.*.local
+全景图/
+封面图/
+_备份/
+_archive/
+.github/
+.edgeone/
+.tef_dist/
+MediaInbox/
+
+# 系统与编辑器
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

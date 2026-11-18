@@ -34,8 +34,12 @@ const CHILD_PATH = [SYSTEM32, path.join(WINDIR, 'System32', 'WindowsPowerShell',
 
 // 同一时刻只允许一个发布任务，避免连点导致 npm/构建并发
 let publishJob = null
+// GitHub 同步任务同理，只允许一个
+let githubJob = null
 const PAGE = path.join(HERE, '影像工具.html')
 const ENV_FILE = path.join(ROOT, '06_private', 'config', '.env.local')
+const GITHUB_SYNC_SCRIPT = path.join(ROOT, 'github', 'github-sync.mjs')
+const GITHUB_STATE_FILE = path.join(tool.PRIVATE, '.cache', 'github-sync.json')
 
 const readEnvValue = (key) => {
   try {
@@ -464,6 +468,82 @@ const server = http.createServer(async (req, res) => {
         if (!child.killed) child.kill()
       })
       return
+    }
+
+    // GitHub 同步：把当前源码推到 main，再构建并推 gh-pages（流式回写日志）
+    if (req.method === 'POST' && url.pathname === '/api/github/sync') {
+      if (githubJob && githubJob.child && githubJob.child.exitCode === null) {
+        const running = ((Date.now() - githubJob.startedAt) / 1000).toFixed(0)
+        res.writeHead(409, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-cache' })
+        res.end(`已有 GitHub 同步任务正在运行（已运行 ${running}s），请等它结束。\n__EXIT__409\n`)
+        return
+      }
+      const scope = url.searchParams.get('scope') === 'main' ? 'main' : 'all'
+      res.writeHead(200, {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-cache',
+        'X-Accel-Buffering': 'no',
+      })
+      const startedAt = Date.now()
+      logLine('info', `开始 GitHub 同步 scope=${scope}`)
+      const args = [GITHUB_SYNC_SCRIPT]
+      if (scope === 'main') args.push('--main-only')
+      const child = spawn(process.execPath, args, {
+        cwd: ROOT,
+        env: { ...process.env, PATH: CHILD_PATH },
+        windowsHide: true,
+      })
+      githubJob = { child, startedAt }
+      let transcript = ''
+      const relay = (chunk) => {
+        const text = String(chunk)
+        res.write(text)
+        logLine('github', text)
+        if (transcript.length < 60000) transcript += text
+      }
+      child.stdout.setEncoding('utf8')
+      child.stderr.setEncoding('utf8')
+      child.stdout.on('data', relay)
+      child.stderr.on('data', relay)
+      child.on('error', (error) => logLine('error', `GitHub 同步进程启动失败 ${error && error.stack ? error.stack : error}`))
+      child.on('close', (code) => {
+        const seconds = ((Date.now() - startedAt) / 1000).toFixed(1)
+        githubJob = null
+        logLine(code === 0 ? 'info' : 'error', `GitHub 同步结束 exit=${code} 用时 ${seconds}s`)
+        const mainSha = (transcript.match(/main：([0-9a-f]{8})/) || [])[1] || ''
+        const pagesSha = (transcript.match(/gh-pages：([0-9a-f]{8})/) || [])[1] || ''
+        try {
+          fs.writeFileSync(
+            GITHUB_STATE_FILE,
+            JSON.stringify({ at: new Date().toISOString(), code, seconds, scope, mainSha, pagesSha }),
+            'utf8',
+          )
+        } catch {
+          // 状态文件写不进去不影响结果
+        }
+        if (code === 0) {
+          res.write(`\nGitHub 已更新：https://github.com/red-mapple/starmap-lac （Pages 构建约 1–2 分钟后生效）\n`)
+        } else {
+          res.write(`\nGitHub 同步失败（exit=${code}），请查看上方日志。\n`)
+        }
+        res.write(`\n__EXIT__${code}\n`)
+        res.end()
+      })
+      req.on('close', () => {
+        if (!child.killed) child.kill()
+      })
+      return
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/github/status') {
+      let last = null
+      try {
+        last = JSON.parse(fs.readFileSync(GITHUB_STATE_FILE, 'utf8'))
+      } catch {
+        last = null
+      }
+      const running = Boolean(githubJob && githubJob.child && githubJob.child.exitCode === null)
+      return json(res, 200, { ok: true, running, startedAt: running ? githubJob.startedAt : null, last })
     }
 
     res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' })

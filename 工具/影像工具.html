@@ -229,7 +229,20 @@
   </div>
 
   <div class="card">
-    <h2><span class="badge">5</span>运行日志 <a href="/api/logs?lines=500" target="_blank" style="margin-left:10px;font-size:12px;font-weight:400;color:#2563eb;text-decoration:underline">服务日志（持久记录）</a></h2>
+    <h2><span class="badge">5</span>更新到 GitHub（源码 + Pages）</h2>
+    <div class="row">
+      <button class="primary" id="ghSync">更新 GitHub</button>
+      <button id="ghMainOnly" title="只同步源码，不重新构建 Pages">只更新源码（main）</button>
+      <a href="https://github.com/red-mapple/starmap-lac" target="_blank" style="font-size:12.5px">仓库 ↗</a>
+      <a href="https://red-mapple.github.io/starmap-lac/" target="_blank" style="font-size:12.5px">Pages ↗</a>
+      <span class="status" id="ghStatus"></span>
+    </div>
+    <div class="hint">会把当前源码推到 main，再用 `base=/starmap-lac/` 构建并推 gh-pages；只上传内容变了的文件，通常 20–60 秒。Pages 线上生效还要再等 1–2 分钟。</div>
+    <div class="hint" id="ghLast"></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="badge">6</span>运行日志 <a href="/api/logs?lines=500" target="_blank" style="margin-left:10px;font-size:12px;font-weight:400;color:#2563eb;text-decoration:underline">服务日志（持久记录）</a></h2>
     <div id="log"></div>
   </div>
 </div>
@@ -701,6 +714,66 @@ $('publishNow').onclick = async () => {
 $('runPublish').onclick = () => run(true);
 $('runOnly').onclick = () => run(false);
 
+// ---- GitHub 同步 ----
+async function refreshGithubStatus() {
+  try {
+    const res = await fetch('/api/github/status').then(r => r.json());
+    if (!res.ok) return;
+    const last = res.last;
+    $('ghLast').textContent = last
+      ? `上次：${new Date(last.at).toLocaleString()}　${last.code === 0 ? '成功' : '失败'}　用时 ${last.seconds}s　main ${last.mainSha || '-'} / gh-pages ${last.pagesSha || '-'}`
+      : '还没有通过本工具同步过 GitHub。';
+    if (res.running) setStatus($('ghStatus'), '同步进行中…');
+  } catch {}
+}
+
+async function syncGithub(mainOnly) {
+  const btn = mainOnly ? $('ghMainOnly') : $('ghSync');
+  $('ghSync').disabled = true;
+  $('ghMainOnly').disabled = true;
+  setStatus($('ghStatus'), mainOnly ? '同步源码中…' : '同步中…（构建 Pages 稍慢）');
+  log('');
+  log(mainOnly
+    ? '[GitHub] 同步源码到 main（不重建 Pages）…'
+    : '[GitHub] 刷新源码 → 推 main → 构建 Pages → 推 gh-pages…', 'dim');
+  let code = null;
+  try {
+    const resp = await fetch('/api/github/sync' + (mainOnly ? '?scope=main' : ''), { method: 'POST' });
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop();
+      for (const line of lines) {
+        if (line.startsWith('__EXIT__')) { code = Number(line.slice(8)); continue; }
+        if (line.trim()) log(line, line.startsWith('[错误]') ? 'err' : undefined);
+      }
+    }
+    if (buf.trim()) log(buf);
+  } catch (error) {
+    log('同步请求中断：' + error, 'err');
+  }
+  if (code === 0) {
+    setStatus($('ghStatus'), mainOnly ? '源码已更新' : '已同步，Pages 构建中', 'ok');
+    log(mainOnly
+      ? '✅ 源码已推到 main。'
+      : '✅ 已推送，Pages 1–2 分钟后生效：https://red-mapple.github.io/starmap-lac/', 'ok');
+  } else {
+    setStatus($('ghStatus'), `同步失败（${code}），看日志`, 'err');
+    log(`❌ GitHub 同步失败（退出码 ${code}），请看上面日志。`, 'err');
+  }
+  $('ghSync').disabled = false;
+  $('ghMainOnly').disabled = false;
+  refreshGithubStatus();
+}
+
+$('ghSync').onclick = () => syncGithub(false);
+$('ghMainOnly').onclick = () => syncGithub(true);
+
 (async function init() {
   log('StarMap 影像工具已就绪。', 'dim');
   if (!$('ncDate').value) {
@@ -709,6 +782,7 @@ $('runOnly').onclick = () => run(false);
   }
   await loadCities();
   if (!cities.length) log('还没有城市记录，点「新建城市」开始。', 'dim');
+  refreshGithubStatus();
 })();
 </script>
 </body>

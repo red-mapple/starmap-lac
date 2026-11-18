@@ -522,7 +522,9 @@ const server = http.createServer(async (req, res) => {
           // 状态文件写不进去不影响结果
         }
         if (code === 0) {
-          res.write(`\nGitHub 已更新：https://github.com/red-mapple/starmap-lac （Pages 构建约 1–2 分钟后生效）\n`)
+          res.write(scope === 'main'
+            ? `\n源码已更新：https://github.com/red-mapple/starmap-lac （Pages 未重建）\n`
+            : `\nGitHub 已更新：https://github.com/red-mapple/starmap-lac （Pages 构建约 1–2 分钟后生效）\n`)
         } else {
           res.write(`\nGitHub 同步失败（exit=${code}），请查看上方日志。\n`)
         }
